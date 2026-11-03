@@ -341,7 +341,7 @@ $("#closeReviewDialog").addEventListener("click", (event) => {
 });
 function historyDescription(entity, value) {
   if (!value) return "";
-  if (entity === "colaborador") return `${value.name} · ${value.company}${value.startDate ? " · Ingreso: " + displayDate(value.startDate) : ""}${value.endDate ? " · Salida: " + displayDate(value.endDate) : ""}${value.archivedAt ? " · Archivado" : ""}${value.adminNote ? " · Notas: " + value.adminNote : ""}`;
+  if (entity === "colaborador") return `${value.name} · ${value.company}${value.startDate ? " · Ingreso: " + displayDate(value.startDate) : ""}${value.endDate ? " · Salida: " + displayDate(value.endDate) : ""}${value.exitReason ? " · " + value.exitReason : ""}${value.archivedAt ? " · Archivado" : ""}${value.adminNote ? " · Notas: " + value.adminNote : ""}`;
   if (entity === "feriado") return `${displayDate(value.date)} · ${value.name}`;
   return `${displayDate(value.date)} · ${value.type === "feriado" ? "Feriado" : "Ordinario"} · ${TRACKING[value.trackingState] || TRACKING.no_aplica}${value.paidAt ? " · Pagado: " + displayDate(value.paidAt) : ""}${value.compensatoryDate ? " · Libre disfrutado: " + displayDate(value.compensatoryDate) : ""}${value.note ? " · " + value.note : ""}`;
 }
@@ -582,9 +582,9 @@ function renderEmployeeCard(person) {
   const shortCompany = person.company === companies[0] ? "Monte Carlo" : "Jacó Beach Onsite";
   const archived = isArchived(person);
   return `<article class="person-card${archived ? " is-archived" : ""}">
-    <div class="person-card-head"><span class="person-avatar" aria-hidden="true">${escapeHtml(initials)}</span><div class="person-identity"><h4>${escapeHtml(person.name)}</h4><small>${escapeHtml(shortCompany)} · ${archived ? "Archivado" : "Activo"}${person.startDate ? " · Ingreso: " + escapeHtml(displayDate(person.startDate)) : ""}${person.endDate ? " · Salida: " + escapeHtml(displayDate(person.endDate)) : ""}</small></div></div>
+    <div class="person-card-head"><span class="person-avatar" aria-hidden="true">${escapeHtml(initials)}</span><div class="person-identity"><h4>${escapeHtml(person.name)}</h4><small>${escapeHtml(shortCompany)} · ${archived ? "Archivado" : "Activo"}${person.exitReason ? " · " + escapeHtml(person.exitReason) : ""}${person.startDate ? " · Ingreso: " + escapeHtml(displayDate(person.startDate)) : ""}${person.endDate ? " · Salida: " + escapeHtml(displayDate(person.endDate)) : ""}</small></div></div>
     <div class="person-stats">${counts.map(([label, count, tone]) => `<div class="person-stat person-stat-${tone}"><span>${label}</span><strong>${count}</strong></div>`).join("")}</div>
-    <div class="person-actions"><button type="button" class="secondary" data-profile="${escapeHtml(person.id)}" aria-label="Ver ficha de ${escapeHtml(person.name)}">Ver ficha</button>${archived ? "" : `<button type="button" class="person-add" data-new-for-employee="${escapeHtml(person.id)}" aria-label="Registrar día para ${escapeHtml(person.name)}">+ Registrar día</button>`}<button type="button" class="link" data-edit-employee="${escapeHtml(person.id)}" aria-label="Editar a ${escapeHtml(person.name)}">Editar</button><button type="button" class="link${archived ? "" : " danger"}" data-remove-employee="${escapeHtml(person.id)}" aria-label="${archived ? "Reactivar" : "Archivar"} a ${escapeHtml(person.name)}">${archived ? "Reactivar" : "Archivar"}</button></div>
+    <div class="person-actions"><button type="button" class="secondary" data-profile="${escapeHtml(person.id)}" aria-label="Ver ficha de ${escapeHtml(person.name)}">Ver ficha</button>${archived ? "" : `<button type="button" class="person-add" data-new-for-employee="${escapeHtml(person.id)}" aria-label="Registrar día para ${escapeHtml(person.name)}">+ Registrar día</button>`}<button type="button" class="link" data-edit-employee="${escapeHtml(person.id)}" aria-label="Editar a ${escapeHtml(person.name)}">Editar</button><button type="button" class="link${archived ? "" : " danger"}" data-remove-employee="${escapeHtml(person.id)}" aria-label="${archived ? "Reactivar" : "Registrar salida"} a ${escapeHtml(person.name)}">${archived ? "Reactivar" : "Registrar salida"}</button></div>
   </article>`;
 }
 function renderPersonProfile() {
@@ -609,7 +609,7 @@ function renderPersonProfile() {
   const visible = records.filter((entry) => !$("#personYear").value || entry.date.startsWith($("#personYear").value))
     .sort((a, b) => b.date.localeCompare(a.date));
   $("#personTitle").textContent = person.name;
-  $("#personCompany").textContent = person.company + (person.startDate ? " · Ingreso: " + displayDate(person.startDate) : "") + (person.endDate ? " · Salida: " + displayDate(person.endDate) : "") + (isArchived(person) ? " · Archivado" : " · Activo");
+  $("#personCompany").textContent = person.company + (person.startDate ? " · Ingreso: " + displayDate(person.startDate) : "") + (person.endDate ? " · Salida: " + displayDate(person.endDate) : "") + (isArchived(person) ? " · Archivado" : " · Activo") + (person.exitReason ? " · " + person.exitReason : "");
   const totals = [
     ["Registros", visible.length],
     ["Pago pendiente", visible.filter((entry) => entry.trackingState === "pago_pendiente").length],
@@ -1140,6 +1140,39 @@ $("#entryForm").onsubmit = (e) => {
   $("#entryDialog").close();
   save({confirmation: `${selectedPerson.name} · ${displayDate(v.date)} · ${TRACKING[v.trackingState]}`});
 };
+let exitRevision;
+function openExitDialog(person) {
+  const form = $("#exitForm");
+  form.reset();
+  form.dataset.employeeId = person.id;
+  exitRevision = window.jornadasCloud?.revisionToken?.();
+  $("#exitPerson").textContent = person.name;
+  const date = form.elements.lastDay;
+  date.max = localToday();
+  date.min = person.startDate || "";
+  date.value = localToday();
+  $("#exitDialog").showModal();
+}
+$("#cancelExit").onclick = () => $("#exitDialog").close();
+$("#exitForm").onsubmit = (event) => {
+  event.preventDefault();
+  if (!formIsCurrent(exitRevision)) return;
+  const form = event.currentTarget;
+  const person = state.employees.find((item) => item.id === form.dataset.employeeId);
+  if (!person || isArchived(person)) return alert("Revisá el estado actual del colaborador.");
+  const endDate = form.elements.lastDay.value;
+  const reason = form.elements.reason.value;
+  if (!["Renuncia", "Despido", "Otro motivo"].includes(reason)) return alert("Seleccioná el motivo de salida.");
+  if (!validISODate(endDate) || endDate > localToday() || (person.startDate && endDate < person.startDate))
+    return alert("Revisá el último día laboral.");
+  const later = state.entries.find((entry) => entry.employeeId === person.id && entry.date > endDate);
+  if (later) return alert(`Hay un registro del ${displayDate(later.date)} posterior al último día laboral. Revisá la fecha antes de archivar.`);
+  person.exitReason = reason;
+  person.endDate = endDate;
+  person.archivedAt = new Date().toISOString();
+  $("#exitDialog").close();
+  save({confirmation: `${person.name} · ${reason}. Expediente archivado.`});
+};
 function openEmployee(e) {
   editingEmployee = e?.id || null;
   employeeRevision = window.jornadasCloud?.revisionToken?.();
@@ -1489,15 +1522,10 @@ document.addEventListener("click", (e) => {
       if (!confirm(`¿Reactivar a ${x.name}? Volverá a la lista de colaboradores activos.`)) return;
       x.archivedAt = "";
       x.endDate = "";
+      delete x.exitReason;
       save({confirmation: `${x.name} reactivado. Sus registros permanecen disponibles.`});
     } else {
-      const count = state.entries.filter((entry) => entry.employeeId === x.id).length;
-      const future = state.entries.find((entry) => entry.employeeId === x.id && entry.date > localToday());
-      if (future) return alert(`Hay un registro futuro del ${displayDate(future.date)}. Revisalo antes de archivar a ${x.name}.`);
-      if (!confirm(`¿Archivar a ${x.name}? Sus ${count} registros se conservarán y podrás reactivarlo después.`)) return;
-      x.archivedAt = new Date().toISOString();
-      if (!x.endDate || x.endDate > localToday()) x.endDate = localToday();
-      save({confirmation: `${x.name} archivado. Se conservaron sus ${count} registros.`});
+      openExitDialog(x);
     }
   }
 });
@@ -1706,6 +1734,7 @@ $("#importBackupFile").addEventListener("change", async (event) => {
           startDate: validISODate(incoming.startDate) ? incoming.startDate : "",
           endDate: validISODate(incoming.endDate) ? incoming.endDate : "",
           archivedAt: typeof incoming.archivedAt === "string" && !Number.isNaN(Date.parse(incoming.archivedAt)) ? incoming.archivedAt : ""};
+        if (["Renuncia", "Despido", "Otro motivo"].includes(incoming.exitReason)) existing.exitReason = incoming.exitReason;
         existing.adminNote = String(incoming.adminNote || "").trim().slice(0,2000);
         candidate.employees.push(existing);
         peopleAdded++;
@@ -2070,3 +2099,4 @@ window.jornadasCloud?.start({
   refreshBackups() { renderBackups(); },
   downloadBackup() { $("#backup").click(); },
 });
+

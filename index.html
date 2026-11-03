@@ -511,6 +511,24 @@
         </div>
       </form>
     </dialog>
+    <dialog id="exitDialog" aria-labelledby="exitTitle">
+      <form id="exitForm">
+        <div class="dialog-head"><h2 id="exitTitle">Registrar salida</h2></div>
+        <p id="exitPerson"></p>
+        <div class="form-grid">
+          <label class="field">Motivo<select name="reason" required>
+            <option value="">Seleccioná un motivo</option>
+            <option>Renuncia</option><option>Despido</option><option>Otro motivo</option>
+          </select></label>
+          <label class="field">Último día laboral<input name="lastDay" type="date" required /></label>
+          <p class="field full employee-dates-hint">Al confirmar, el expediente pasará a Archivados y conservará sus registros.</p>
+        </div>
+        <div class="dialog-actions">
+          <button type="button" class="secondary" id="cancelExit">Cancelar</button>
+          <button type="submit" class="primary">Guardar y archivar</button>
+        </div>
+      </form>
+    </dialog>
     <dialog id="holidayDialog">
       <form id="holidayForm">
         <div class="dialog-head">
@@ -650,7 +668,8 @@
     <script src="firebase-config.js?v=20260927-3"></script>
     <script src="cloud.js?v=20260928-10"></script>
     <script src="xlsx.js?v=20260928-12"></script>
-    <script src="app.js?v=20260929-4"></script>
+    <script src="app.js?v=20261103-1"></script>
     <script src="unified.js?v=20260929-5"></script>
   </body>
 </html>
+
